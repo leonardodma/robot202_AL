@@ -25,6 +25,8 @@ args = vars(ap.parse_args())
 
 # initialize the list of class labels MobileNet SSD was trained to
 # detect, then generate a set of bounding box colors for each class
+
+
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
 	"bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
 	"dog", "horse", "motorbike", "person", "pottedplant", "sheep",
@@ -48,7 +50,6 @@ def detect(frame):
 
     # pass the blob through the network and obtain the detections and
     # predictions
-    print("[INFO] computing object detections...")
     net.setInput(blob)
     detections = net.forward()
 
@@ -59,36 +60,34 @@ def detect(frame):
         # extract the confidence (i.e., probability) associated with the
         # prediction
         confidence = detections[0, 0, i, 2]
-
+        
         # filter out weak detections by ensuring the `confidence` is
         # greater than the minimum confidence
 
-
-        if confidence > args["confidence"]:
+        if confidence > 5:
             # extract the index of the class label from the `detections`,
             # then compute the (x, y)-coordinates of the bounding box for
             # the object
             idx = int(detections[0, 0, i, 1])
-            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-            (startX, startY, endX, endY) = box.astype("int")
 
-            # display the prediction
-            label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
-            print("[INFO] {}".format(label))
-            cv2.rectangle(image, (startX, startY), (endX, endY),
-                COLORS[idx], 2)
-            y = startY - 15 if startY - 15 > 15 else startY + 15
-            cv2.putText(image, label, (startX, y),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
+            if CLASSES[idx] == 'dog':
+            #print("Idx: {}".format(idx))
+                box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                (startX, startY, endX, endY) = box.astype("int")
 
-            results.append((CLASSES[idx], confidence*100, (startX, startY),(endX, endY) ))
+                # display the prediction
+                label = "{}: {:.2f}%".format(CLASSES[idx], confidence * 100)
+                #print("[INFO] {}".format(label))
+                cv2.rectangle(image, (startX, startY), (endX, endY),
+                    COLORS[idx], 2)
+                y = startY - 15 if startY - 15 > 15 else startY + 15
+                cv2.putText(image, label, (startX, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
+
+                results.append((CLASSES[idx], confidence*100, (startX, startY),(endX, endY) ))
 
     # show the output image
     return image, results
-
-
-
-
 
 
 import cv2
@@ -96,17 +95,22 @@ import cv2
 #cap = cv2.VideoCapture('hall_box_battery_1024.mp4')
 cap = cv2.VideoCapture(0)
 
-print("Known classes")
-print(CLASSES)
+#print("Known classes")
+#print(CLASSES)
 
 while(True):
     # Capture frame-by-frame
     ret, frame = cap.read()
     
-    result_frame, result_tuples = detect(frame)
+    result_frame, result_tuples = None, None
+    
+    try:
+        result_frame, result_tuples = detect(frame)
+    except:
+        pass
 
 
-    # Display the resulting frame
+# Display the resulting frame
     cv2.imshow('frame',result_frame)
 
     # Prints the structures results:
