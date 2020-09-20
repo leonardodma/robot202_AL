@@ -8,32 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 import sys
-import auxiliar as aux
-
-
-def encontra_circulo(img, codigo_cor):
-    hsv_1, hsv_2 = aux.ranges(codigo_cor)
-
-    # convert the image to grayscale, blur it, and detect edges
-    hsv = cv2.cvtColor(img , cv2.COLOR_BGR2HSV)
-    gray = cv2.cvtColor(img , cv2.COLOR_BGR2GRAY)
     
-    color_mask = cv2.inRange(hsv, hsv_1, hsv_2)
-   
-    segmentado = cv2.morphologyEx(color_mask, cv2.MORPH_CLOSE, np.ones((10, 10)))
-    
-    segmentado = cv2.adaptiveThreshold(segmentado,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-                 cv2.THRESH_BINARY,11,3.5)
-
-    kernel = np.ones((3, 3),np.uint8)
-	
-    segmentado = cv2.erode(segmentado,kernel,iterations = 1)
-    
-    lines = cv2.HoughLinesP(segmentado,rho=6,theta=np.pi / 60,threshold=160,
-                            lines=np.array([]),minLineLength=80,maxLineGap=25)
-    
-    return lines
-
 
 cap = cv2.VideoCapture('line_following.mp4')
 
@@ -46,7 +21,23 @@ while(True):
     # Capture frame-by-frame
     ret, frame = cap.read()
 
-    lines = encontra_circulo(frame, '#FFFFFF')
+    hsv_1, hsv_2 = np.array([0,0,200], dtype=np.uint8), np.array([0,0,255], dtype=np.uint8)
+
+    # convert the image to grayscale, blur it, and detect edges
+    hsv = cv2.cvtColor(frame , cv2.COLOR_BGR2HSV)    
+    
+    color_mask = cv2.inRange(hsv, hsv_1, hsv_2)
+
+    segmentado = cv2.morphologyEx(color_mask, cv2.MORPH_CLOSE, np.ones((10, 10)))
+    
+    segmentado = cv2.adaptiveThreshold(segmentado,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY,11,3.5)
+
+    kernel = np.ones((3, 3),np.uint8)
+	
+    segmentado = cv2.erode(segmentado,kernel,iterations = 1)
+    
+    lines = cv2.HoughLinesP(segmentado,rho=6,theta=np.pi / 60,threshold=160,
+                            lines=np.array([]),minLineLength=80,maxLineGap=25)
     
 
     for line in lines:
