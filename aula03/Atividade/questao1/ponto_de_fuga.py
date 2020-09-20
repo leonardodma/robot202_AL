@@ -8,31 +8,36 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 import sys
-import auxiliar as aux
+    
 
 
-def encontra_circulo(img, codigo_cor):
-    hsv_1, hsv_2 = aux.ranges(codigo_cor)
+def region_of_interest(img, regiao):
+    height = img.shape[0]
+    width = img.shape[1]
 
-    # convert the image to grayscale, blur it, and detect edges
-    hsv = cv2.cvtColor(img , cv2.COLOR_BGR2HSV)
-    gray = cv2.cvtColor(img , cv2.COLOR_BGR2GRAY)
-    
-    color_mask = cv2.inRange(hsv, hsv_1, hsv_2)
-   
-    segmentado = cv2.morphologyEx(color_mask, cv2.MORPH_CLOSE, np.ones((10, 10)))
-    
-    segmentado = cv2.adaptiveThreshold(segmentado,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-                 cv2.THRESH_BINARY,11,3.5)
+    # Define a blank matrix that matches the image height/width.
+    mask = np.zeros_like(img)
+    # Retrieve the number of color channels of the image.
+    channel_count = img.shape[2]
+    # Create a match color with the same color channel counts.
+    match_mask_color = (255,) * channel_count
 
-    kernel = np.ones((3, 3),np.uint8)
-	
-    segmentado = cv2.erode(segmentado,kernel,iterations = 1)
+    corte_pista = None
+      
+    if regiao == 'esquerda':
+        corte_pista = [(0, height), (0, height/2), (width/2, height/2),(width/2, height), (width, height),]
+
+    elif regiao == 'direita':
+        corte_pista = [(width, height), (width, height/2), (width/2, height/2),(width/2, height), (0,height),]
+
+
+    cv2.fillPoly(mask, np.array([corte_pista], np.int32), match_mask_color)
     
-    lines = cv2.HoughLinesP(segmentado,rho=6,theta=np.pi / 60,threshold=160,
-                            lines=np.array([]),minLineLength=80,maxLineGap=25)
-    
-    return lines
+    # Returning the image only where mask pixels match
+    masked_image = cv2.bitwise_and(img, mask)
+
+
+    return masked_image
 
 
 cap = cv2.VideoCapture('line_following.mp4')
@@ -43,15 +48,57 @@ upper = 1
 
 
 while(True):
+    kernel = np.ones((3, 3),np.uint8)
+
     # Capture frame-by-frame
     ret, frame = cap.read()
 
-    lines = encontra_circulo(frame, '#FFFFFF')
+    # Cortando a imagem para a análise somente das regiões de interesse
+    pista_esquerda = region_of_interest(frame, 'esquerda',)
+    pista_direita = region_of_interest(frame, 'direita',)
+    
+    # Definindo uma másquina da cor branca (cor da pista)
+    hsv_1, hsv_2 = np.array([0,0,240], dtype=np.uint8), np.array([255,15,255], dtype=np.uint8)
+    
+    hsv_esquerda = cv2.cvtColor(pista_esquerda , cv2.COLOR_BGR2HSV) 
+    hsv_direita = cv2.cvtColor(pista_direita , cv2.COLOR_BGR2HSV)   
+
+    color_mask_esquerda = cv2.inRange(hsv_esquerda, hsv_1, hsv_2)
+    color_mask_direita = cv2.inRange(hsv_direita, hsv_1, hsv_2)
     
 
-    for line in lines:
-        for x1, y1, x2, y2 in line:
-            cv2.line(frame, (x1, y1), (x2, y2), [0, 0, 255], 3)
+    # IDENTIFICAÇÃO DAS RETAS:
+    x1e, y1e, x2e, y2e = None, None, None, None
+    x1d, y1d, x2d, y2d = None, None, None, None
+    md, me = None, None
+
+    # Identificando as linhas na parte esquerda da pista
+    lines_esquerda = cv2.HoughLinesP(color_mask_esquerda, 1, np.pi/180, 30, maxLineGap=200)
+    # draw Hough lines
+    for line in lines_esquerda:
+        x1e, y1e, x2e, y2e = line[0]
+        me = (y1e - y2e)/(x1e - x2e)
+        cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
+
+
+    # Identificando as linhas na parte direita da pista
+    lines_direita = cv2.HoughLinesP(color_mask_direita, 1, np.pi/180, 30, maxLineGap=200)
+    # draw Hough lines
+    for line in lines_direita:
+        x1d, y1d, x2d, y2d = line[0]
+        md = (y1d - y2d)/(x1d - x2d)
+        cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
+
+
+    # IDENTIFICAÇÂO DO PONTO DE FUGA:
+    #md = (y1d - y2d)/(x1d - x2d)
+    #me = (y1e - y2e)/(x1e - x2e)
+
+    print('----------------------------------')
+    print("Delta y: {}".format(y1d - y2d))
+    print("Delta x: {}".format(x1d - x2d))
+    print("m: {:.3f}".format(md))
+    print('----------------------------------')
 
 
     cv2.imshow("Ponto de Fuga", frame)
