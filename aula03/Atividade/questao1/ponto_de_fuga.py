@@ -1,8 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Referências:
-# https://www.geeksforgeeks.org/circle-detection-using-opencv-python/   
 
 import math
 import cv2
@@ -10,94 +8,104 @@ import numpy as np
 from matplotlib import pyplot as plt
 import time
 import sys
-import auxiliar as aux
-
-
-def encontra_circulo(img, codigo_cor):
-    # MAGENTA
-    hsv_1, hsv_2 = aux.ranges(codigo_cor)
-
-    # convert the image to grayscale, blur it, and detect edges
-    hsv = cv2.cvtColor(img , cv2.COLOR_BGR2HSV)
-    gray = cv2.cvtColor(img , cv2.COLOR_BGR2GRAY)
     
-    color_mask = cv2.inRange(hsv, hsv_1, hsv_2)
-   
-    segmentado = cv2.morphologyEx(color_mask, cv2.MORPH_CLOSE, np.ones((10, 10)))
+
+
+def region_of_interest(img, regiao):
+    height = img.shape[0]
+    width = img.shape[1]
+
+    # Define a blank matrix that matches the image height/width.
+    mask = np.zeros_like(img)
+    # Retrieve the number of color channels of the image.
+    channel_count = img.shape[2]
+    # Create a match color with the same color channel counts.
+    match_mask_color = (255,) * channel_count
+
+    corte_pista = None
+      
+    if regiao == 'esquerda':
+        corte_pista = [(0, height), (0, height/2), (width/2, height/2),(width/2, height), (width, height),]
+
+    elif regiao == 'direita':
+        corte_pista = [(width, height), (width, height/2), (width/2, height/2),(width/2, height), (0,height),]
+
+
+    cv2.fillPoly(mask, np.array([corte_pista], np.int32), match_mask_color)
     
-    segmentado = cv2.adaptiveThreshold(segmentado,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,\
-                 cv2.THRESH_BINARY,11,3.5)
-
-    kernel = np.ones((3, 3),np.uint8)
-	
-    segmentado = cv2.erode(segmentado,kernel,iterations = 1)
-    
-    circles=cv2.HoughCircles(segmentado, cv2.HOUGH_GRADIENT,2,40,param1=50,param2=100,minRadius=5,maxRadius=100)
-    
-    return circles
+    # Returning the image only where mask pixels match
+    masked_image = cv2.bitwise_and(img, mask)
 
 
-if len(sys.argv) > 1:
-    arg = sys.argv[1]
-    try:
-        input_source=int(arg) # se for um device
-    except:
-        input_source=str(arg) # se for nome de arquivo
-else:   
-    input_source = 0
+    return masked_image
 
-cap = cv2.VideoCapture(input_source)
 
-# Parameters to use when opening the webcam.
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap = cv2.VideoCapture('line_following.mp4')
+
 
 lower = 0
 upper = 1
 
 
 while(True):
+    kernel = np.ones((3, 3),np.uint8)
+
     # Capture frame-by-frame
     ret, frame = cap.read()
 
-    circles_magenta = encontra_circulo(frame, '#FF00FF')
-    circles_ciano = encontra_circulo(frame, '#5dbcce')
-
-    x_m, y_m, r_m = None, None, None
-    x_c, y_c, r_c = None, None, None
-
-
-    if circles_magenta is not None:
-        circles_magenta = np.uint16(np.around(circles_magenta)) 
+    # Cortando a imagem para a análise somente das regiões de interesse
+    pista_esquerda = region_of_interest(frame, 'esquerda',)
+    pista_direita = region_of_interest(frame, 'direita',)
     
-        # Desenha círculos da cor Magenta 
-        for pt in circles_magenta[0, :]: 
-            x_m, y_m, r_m = pt[0], pt[1], pt[2] 
+    # Definindo uma másquina da cor branca (cor da pista)
+    hsv_1, hsv_2 = np.array([0,0,240], dtype=np.uint8), np.array([255,15,255], dtype=np.uint8)
     
-            # Draw the circunference of the circle. 
-            cv2.circle(frame, (x_m, y_m), r_m, (0, 255, 255), 2) 
+    hsv_esquerda = cv2.cvtColor(pista_esquerda , cv2.COLOR_BGR2HSV) 
+    hsv_direita = cv2.cvtColor(pista_direita , cv2.COLOR_BGR2HSV)   
+
+    color_mask_esquerda = cv2.inRange(hsv_esquerda, hsv_1, hsv_2)
+    color_mask_direita = cv2.inRange(hsv_direita, hsv_1, hsv_2)
     
-            # Draw a small circle (of radius 1) to show the center. 
-            cv2.circle(frame, (x_m, y_m), 1, (0, 255, 255), 3)
+
+    # IDENTIFICAÇÃO DAS RETAS:
+    x1e, y1e, x2e, y2e = None, None, None, None
+    x1d, y1d, x2d, y2d = None, None, None, None
+    md, me = None, None
+
+    # Identificando as linhas na parte esquerda da pista
+    lines_esquerda = cv2.HoughLinesP(color_mask_esquerda, 1, np.pi/180, 30, maxLineGap=200)
+    # draw Hough lines
+    for line in lines_esquerda:
+        x1e, y1e, x2e, y2e = line[0]
+        me = (y1e - y2e)/(x1e - x2e)
+        cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
 
 
-    if circles_ciano is not None: 
-        circles_ciano= np.uint16(np.around(circles_ciano)) 
-        # Desenha círculos da cor ciano 
-        for pt in circles_ciano[0, :]: 
-            x_c, y_c, r_c = pt[0], pt[1], pt[2] 
-    
-            # Draw the circunference of the circle. 
-            cv2.circle(frame, (x_c, y_c), r_c, (0, 255, 255), 2) 
-    
-            # Draw a small circle (of radius 1) to show the center. 
-            cv2.circle(frame, (x_c, y_c), 1, (0, 255, 255), 3)
+    # Identificando as linhas na parte direita da pista
+    lines_direita = cv2.HoughLinesP(color_mask_direita, 1, np.pi/180, 30, maxLineGap=200)
+    # draw Hough lines
+    for line in lines_direita:
+        x1d, y1d, x2d, y2d = line[0]
+        md = (y1d - y2d)/(x1d - x2d)
+        cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
 
-    cv2.imshow("Detected Circle", frame)
+
+    # IDENTIFICAÇÂO DO PONTO DE FUGA:
+    #md = (y1d - y2d)/(x1d - x2d)
+    #me = (y1e - y2e)/(x1e - x2e)
+
+    print('----------------------------------')
+    print("Delta y: {}".format(y1d - y2d))
+    print("Delta x: {}".format(x1d - x2d))
+    print("m: {:.3f}".format(md))
+    print('----------------------------------')
+
+
+    cv2.imshow("Ponto de Fuga", frame)
 
     if cv2.waitKey(1) &  0xFF == ord('q'):
         break
 
 #  When everything done, release the capture
 cap.release()
-cv2.destroyAllWindows()
+cv2.destroyAllWindows() 
