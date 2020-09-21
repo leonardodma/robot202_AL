@@ -77,7 +77,7 @@ while(True):
     # draw Hough lines
     for line in lines_esquerda:
         x1e, y1e, x2e, y2e = line[0]
-        me = (y1e - y2e)/(x1e - x2e)
+        me = ((y1e - y2e)*1.0)/(x1e - x2e)
         cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
 
 
@@ -86,19 +86,31 @@ while(True):
     # draw Hough lines
     for line in lines_direita:
         x1d, y1d, x2d, y2d = line[0]
-        md = (y1d - y2d)/(x1d - x2d)
+        md = ((y1d - y2d)*1.0)/((x1d - x2d))
         cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
 
 
-    # IDENTIFICAÇÂO DO PONTO DE FUGA:
-    #md = (y1d - y2d)/(x1d - x2d)
-    #me = (y1e - y2e)/(x1e - x2e)
+    # Equação da reta esquerda:
+    # y - y1e = me(x - x1e) 
+    # y = me*x + y1e - me*x1e 
 
-    print('----------------------------------')
-    print("Delta y: {}".format(y1d - y2d))
-    print("Delta x: {}".format(x1d - x2d))
-    print("m: {:.3f}".format(md))
-    print('----------------------------------')
+    # Equação da reta direita:
+    # y - y1d = md(x - x1d) 
+    # y = md*x + y1d - md*x1d 
+
+    # Intersecção:
+    # me*x + y1e - me*x1e  = md*x + y1d - md*x1d
+    
+    x = ((y1d - y1e + me*x1e - md*x1d)*1.0)/(me - md)
+    y =  me*x + y1e - me*x1e
+
+    print('----------------------')
+    print('x: {}'.format(x))
+    print('y: {}'.format(y))
+    print('----------------------')
+
+    # Ponto de Fuga
+    cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), 6)
 
 
     cv2.imshow("Ponto de Fuga", frame)
