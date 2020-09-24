@@ -10,6 +10,17 @@ import time
 import sys
     
 
+def retorna_maior(linhas):
+    maior = 0
+    maior_linha = None
+    for linha in linhas:
+        dedp = ((linha[0] - linha[2])**2 + (linha[1] - linha[3])**2)**(1/2)
+        if dedp > maior:
+            maior = dedp
+            maior_linha = linha
+
+    return maior_linha[0]
+
 
 def region_of_interest(img, regiao):
     height = img.shape[0]
@@ -82,27 +93,26 @@ while(True):
 
 
     # IDENTIFICAÇÃO DAS RETAS:
-    x1e, y1e, x2e, y2e = None, None, None, None
-    x1d, y1d, x2d, y2d = None, None, None, None
-    md, me = None, None
+    # x1e, y1e, x2e, y2e = None, None, None, None
+    # x1d, y1d, x2d, y2d = None, None, None, None
+    # md, me = None, None
 
     # Identificando as linhas
     lines_esquerda = cv2.HoughLinesP(pista_esquerda_segmentado, 1, np.pi/180, 30, maxLineGap=200)
     lines_direita = cv2.HoughLinesP(pista_direita_segmentado, 1, np.pi/180, 30, maxLineGap=200)
 
+    # print(lines_direita.shape)
 
     try:
-        # draw Hough lines
-        for line in lines_esquerda:
-            x1e, y1e, x2e, y2e = line[0]
-            me = ((y1e - y2e)*1.0)/(x1e - x2e)
-            cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
+        x1e, y1e, x2e, y2e = lines_esquerda[0][0]
 
-        # draw Hough lines
-        for line in lines_direita:
-            x1d, y1d, x2d, y2d = line[0]
-            md = ((y1d - y2d)*1.0)/((x1d - x2d))
-            cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
+        me = ((y1e - y2e)*1.0)/(x1e - x2e)
+        cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
+
+
+        x1d, y1d, x2d, y2d = lines_direita[0][0]
+        md = ((y1d - y2d)*1.0)/((x1d - x2d))
+        cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
 
         # Equação da reta esquerda:
         # y - y1e = me(x - x1e) 
@@ -128,6 +138,7 @@ while(True):
 
     if cv2.waitKey(1) &  0xFF == ord('q'):
         break
+
 
 #  When everything done, release the capture
 cap.release()
