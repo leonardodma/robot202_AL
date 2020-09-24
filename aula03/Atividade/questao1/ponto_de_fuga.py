@@ -67,51 +67,62 @@ while(True):
     color_mask_direita = cv2.inRange(hsv_direita, hsv_1, hsv_2)
     
 
+    segmentado_direita = cv2.adaptiveThreshold(cv2.morphologyEx(color_mask_direita, 
+                        cv2.MORPH_CLOSE, np.ones((10, 10))),255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,3.5)
+    segmentado_direita = cv2.erode(segmentado_direita,kernel,iterations = 1)
+
+    pista_direita_segmentado = cv2.bitwise_not(segmentado_direita)
+    
+
+    segmentado_esquerda = cv2.adaptiveThreshold(cv2.morphologyEx(color_mask_esquerda, 
+                        cv2.MORPH_CLOSE, np.ones((10, 10))),255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,3.5)
+    segmentado_esquerda = cv2.erode(segmentado_esquerda,kernel,iterations = 1)
+
+    pista_esquerda_segmentado = cv2.bitwise_not(segmentado_esquerda)
+
+
     # IDENTIFICAÇÃO DAS RETAS:
     x1e, y1e, x2e, y2e = None, None, None, None
     x1d, y1d, x2d, y2d = None, None, None, None
     md, me = None, None
 
-    # Identificando as linhas na parte esquerda da pista
-    lines_esquerda = cv2.HoughLinesP(color_mask_esquerda, 1, np.pi/180, 30, maxLineGap=200)
-    # draw Hough lines
-    for line in lines_esquerda:
-        x1e, y1e, x2e, y2e = line[0]
-        me = ((y1e - y2e)*1.0)/(x1e - x2e)
-        cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
+    # Identificando as linhas
+    lines_esquerda = cv2.HoughLinesP(pista_esquerda_segmentado, 1, np.pi/180, 30, maxLineGap=200)
+    lines_direita = cv2.HoughLinesP(pista_direita_segmentado, 1, np.pi/180, 30, maxLineGap=200)
 
 
-    # Identificando as linhas na parte direita da pista
-    lines_direita = cv2.HoughLinesP(color_mask_direita, 1, np.pi/180, 30, maxLineGap=200)
-    # draw Hough lines
-    for line in lines_direita:
-        x1d, y1d, x2d, y2d = line[0]
-        md = ((y1d - y2d)*1.0)/((x1d - x2d))
-        cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
+    try:
+        # draw Hough lines
+        for line in lines_esquerda:
+            x1e, y1e, x2e, y2e = line[0]
+            me = ((y1e - y2e)*1.0)/(x1e - x2e)
+            cv2.line(frame, (x1e, y1e), (x2e, y2e), (0, 255, 0), 3)
 
+        # draw Hough lines
+        for line in lines_direita:
+            x1d, y1d, x2d, y2d = line[0]
+            md = ((y1d - y2d)*1.0)/((x1d - x2d))
+            cv2.line(frame, (x1d, y1d), (x2d, y2d), (255, 0, 0), 3)
 
-    # Equação da reta esquerda:
-    # y - y1e = me(x - x1e) 
-    # y = me*x + y1e - me*x1e 
+        # Equação da reta esquerda:
+        # y - y1e = me(x - x1e) 
+        # y = me*x + y1e - me*x1e 
 
-    # Equação da reta direita:
-    # y - y1d = md(x - x1d) 
-    # y = md*x + y1d - md*x1d 
+        # Equação da reta direita:
+        # y - y1d = md(x - x1d) 
+        # y = md*x + y1d - md*x1d 
 
-    # Intersecção:
-    # me*x + y1e - me*x1e  = md*x + y1d - md*x1d
-    
-    x = ((y1d - y1e + me*x1e - md*x1d)*1.0)/(me - md)
-    y =  me*x + y1e - me*x1e
+        # Intersecção:
+        # me*x + y1e - me*x1e  = md*x + y1d - md*x1d
+        
+        x = ((y1d - y1e + me*x1e - md*x1d)*1.0)/(me - md)
+        y =  me*x + y1e - me*x1e
 
-    print('----------------------')
-    print('x: {}'.format(x))
-    print('y: {}'.format(y))
-    print('----------------------')
+        # Ponto de Fuga
+        cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), 6)
 
-    # Ponto de Fuga
-    cv2.circle(frame, (int(x), int(y)), 4, (0, 0, 255), 6)
-
+    except:
+        pass
 
     cv2.imshow("Ponto de Fuga", frame)
 
